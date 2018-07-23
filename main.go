@@ -295,7 +295,6 @@ func main() {
 	json.Unmarshal(configFile, &config)
 
 	// 标志时间
-	var flagTime time.Time
 	userIndex := 0
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -312,42 +311,45 @@ func main() {
 			}
 			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
 				log.Println("Work day ...")
-				if CSTTime.Hour() == 8 && CSTTime.Minute() == 5 {
-					flagTime = time.Now()
-				}
-				if newDayCheckIn {
-					currentTime := time.Now()
-					if currentTime.After(flagTime.Add(time.Duration(myRand.Int()%30) * time.Minute)) {
-						username := config.Users[userIndex].Username
-						password := config.Users[userIndex].Password
-						doFunc(username, password, "checkin")
-						log.Println("username: ", username)
-						userIndex++
-						if userIndex == len(config.Users) {
-							userIndex = 0
-							newDayCheckIn = false
-						}
-					}
-				}
-				if CSTTime.Hour() >= 18 {
-					if CSTTime.Hour() == 18 && CSTTime.Minute() == 0 {
+				if CSTTime.Hour() >= 8 && CSTTime.Hour() <= 9 {
+					var flagTime time.Time
+					if CSTTime.Minute() == 0 {
 						flagTime = time.Now()
-					}
-					if newDayCheckout {
-						currentTime := time.Now()
-						if currentTime.After(flagTime.Add(time.Duration(myRand.Int()%30) * time.Minute)) {
-							username := config.Users[userIndex].Username
-							password := config.Users[userIndex].Password
-							doFunc(username, password, "checkout")
-							log.Printf("%s checkout.\n", username)
-							userIndex++
-							if userIndex == len(config.Users) {
-								userIndex = 0
-								newDayCheckout = false
+					} else {
+						if newDayCheckIn {
+							if CSTTime.After(flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)) {
+								username := config.Users[userIndex].Username
+								password := config.Users[userIndex].Password
+								doFunc(username, password, "checkin")
+								log.Println("username: ", username)
+								userIndex++
+								if userIndex == len(config.Users) {
+									userIndex = 0
+									newDayCheckIn = false
+								}
 							}
 						}
 					}
-
+				}
+				if CSTTime.Hour() >= 18 && CSTTime.Hour() <= 19 {
+					var flagTime time.Time
+					if CSTTime.Minute() == 0 {
+						flagTime = time.Now()
+					} else {
+						if newDayCheckout {
+							if CSTTime.After(flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)) {
+								username := config.Users[userIndex].Username
+								password := config.Users[userIndex].Password
+								doFunc(username, password, "checkout")
+								log.Printf("%s checkout.\n", username)
+								userIndex++
+								if userIndex == len(config.Users) {
+									userIndex = 0
+									newDayCheckout = false
+								}
+							}
+						}
+					}
 				}
 			} else {
 				log.Println("Do fun ...")
