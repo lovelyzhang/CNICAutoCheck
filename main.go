@@ -213,14 +213,15 @@ func sendMail(checkType string, username string, result bool) {
 
 func doFunc(username string, password string, checkType string) {
 
-	authUrl := getAuthUrl()
-	getSessions(authUrl)
-	token, err := getToken(authUrl, username, password)
-	if err != nil {
-		log.Fatal(err)
-	}
-	result := checkInAndOut(token, checkType)
-	sendMail(checkType, username, result)
+	//authUrl := getAuthUrl()
+	//getSessions(authUrl)
+	//token, err := getToken(authUrl, username, password)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//result := checkInAndOut(token, checkType)
+	//sendMail(checkType, username, result)
+	log.Println("do func.")
 }
 
 //func doFunc(username string, password string, checkType string) {
@@ -297,6 +298,8 @@ func main() {
 	// 标志时间
 	userIndex := 0
 	ticker := time.NewTicker(1 * time.Second)
+	var flagTime time.Time
+	flag := false
 	defer ticker.Stop()
 
 	for {
@@ -307,49 +310,55 @@ func main() {
 			if CSTTime.Hour() >= 23 {
 				newDayCheckIn = true
 				newDayCheckout = true
+				flag = false
 				log.Println("Rest check ...")
 			}
 			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
 				log.Println("Work day ...")
 				if CSTTime.Hour() >= 8 && CSTTime.Hour() <= 9 {
-					var flagTime time.Time
-					if CSTTime.Minute() == 0 {
-						flagTime = time.Now()
-					} else {
-						if newDayCheckIn {
-							if CSTTime.After(flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)) {
-								username := config.Users[userIndex].Username
-								password := config.Users[userIndex].Password
-								doFunc(username, password, "checkin")
-								log.Println("username: ", username)
-								userIndex++
-								if userIndex == len(config.Users) {
-									userIndex = 0
-									newDayCheckIn = false
-								}
+					if CSTTime.Minute() == 0 && flag == false {
+						flagTime = CSTTime
+						flag = true
+					}
+					if newDayCheckIn && flag {
+						checkTime := flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
+						log.Println(checkTime)
+						if CSTTime.After(checkTime) {
+							username := config.Users[userIndex].Username
+							password := config.Users[userIndex].Password
+							doFunc(username, password, "checkin")
+							log.Println("username: ", username)
+							userIndex++
+							if userIndex == len(config.Users) {
+								userIndex = 0
+								newDayCheckIn = false
+								flag = false
 							}
 						}
 					}
+
 				}
 				if CSTTime.Hour() >= 18 && CSTTime.Hour() <= 19 {
-					var flagTime time.Time
-					if CSTTime.Minute() == 0 {
-						flagTime = time.Now()
-					} else {
-						if newDayCheckout {
-							if CSTTime.After(flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)) {
-								username := config.Users[userIndex].Username
-								password := config.Users[userIndex].Password
-								doFunc(username, password, "checkout")
-								log.Printf("%s checkout.\n", username)
-								userIndex++
-								if userIndex == len(config.Users) {
-									userIndex = 0
-									newDayCheckout = false
-								}
+					if CSTTime.Minute() == 0 && flag == false {
+						flagTime = CSTTime
+						flag = true
+					}
+					if newDayCheckout {
+						checkTime := flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
+						if CSTTime.After(checkTime) {
+							username := config.Users[userIndex].Username
+							password := config.Users[userIndex].Password
+							doFunc(username, password, "checkout")
+							log.Printf("%s checkout.\n", username)
+							userIndex++
+							if userIndex == len(config.Users) {
+								userIndex = 0
+								newDayCheckout = false
+								flag = false
 							}
 						}
 					}
+
 				}
 			} else {
 				log.Println("Do fun ...")
