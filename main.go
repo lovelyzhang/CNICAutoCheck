@@ -213,14 +213,14 @@ func sendMail(checkType string, username string, result bool) {
 
 func doFunc(username string, password string, checkType string) {
 
-	//authUrl := getAuthUrl()
-	//getSessions(authUrl)
-	//token, err := getToken(authUrl, username, password)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//result := checkInAndOut(token, checkType)
-	//sendMail(checkType, username, result)
+	authUrl := getAuthUrl()
+	getSessions(authUrl)
+	token, err := getToken(authUrl, username, password)
+	if err != nil {
+		log.Fatal(err)
+	}
+	result := checkInAndOut(token, checkType)
+	sendMail(checkType, username, result)
 	log.Println("do func.")
 }
 
@@ -315,8 +315,8 @@ func main() {
 			}
 			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
 				log.Println("Work day ...")
-				if CSTTime.Hour() >= 8 && CSTTime.Hour() <= 9 {
-					if CSTTime.Minute() == 0 && flag == false {
+				if CSTTime.Hour() >= 8 && CSTTime.Hour() < 9 {
+					if CSTTime.Minute() == 15 && flag == false {
 						flagTime = CSTTime
 						flag = true
 					}
@@ -338,12 +338,12 @@ func main() {
 					}
 
 				}
-				if CSTTime.Hour() >= 18 && CSTTime.Hour() <= 19 {
+				if CSTTime.Hour() >= 18 && CSTTime.Hour() < 19 {
 					if CSTTime.Minute() == 0 && flag == false {
 						flagTime = CSTTime
 						flag = true
 					}
-					if newDayCheckout {
+					if newDayCheckout && flag {
 						checkTime := flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
 						if CSTTime.After(checkTime) {
 							username := config.Users[userIndex].Username
