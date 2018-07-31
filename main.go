@@ -213,20 +213,16 @@ func sendMail(checkType string, username string, result bool) {
 
 func doFunc(username string, password string, checkType string) {
 
-	authUrl := getAuthUrl()
-	getSessions(authUrl)
-	token, err := getToken(authUrl, username, password)
-	if err != nil {
-		log.Fatal(err)
-	}
-	result := checkInAndOut(token, checkType)
-	sendMail(checkType, username, result)
+	//authUrl := getAuthUrl()
+	//getSessions(authUrl)
+	//token, err := getToken(authUrl, username, password)
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	//result := checkInAndOut(token, checkType)
+	//sendMail(checkType, username, result)
 	log.Println("do func.")
 }
-
-//func doFunc(username string, password string, checkType string) {
-//	fmt.Println(username, password, checkType)
-//}
 
 func getCSTTime(utcTime time.Time) time.Time {
 	beijing, err := time.LoadLocation("Asia/Chongqing")
@@ -296,65 +292,52 @@ func main() {
 	json.Unmarshal(configFile, &config)
 
 	// 标志时间
-	userIndex := 0
 	ticker := time.NewTicker(1 * time.Second)
-	var flagTime time.Time
-	flag := false
 	defer ticker.Stop()
+
+	userCheckTime := make([]time.Time, len(config.Users))
+	userChecked := make([]bool, len(config.Users))
 
 	for {
 		select {
 		case t := <-ticker.C:
 			CSTTime := getCSTTime(t.UTC())
-			// 每天晚上11点,重置
-			if CSTTime.Hour() >= 23 {
-				newDayCheckIn = true
-				newDayCheckout = true
-				flag = false
-				log.Println("Rest check ...")
-			}
-			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
+			if CSTTime.Weekday() >= 0 && CSTTime.Weekday() <= 5 {
 				log.Println("Work day ...")
 				if CSTTime.Hour() >= 8 && CSTTime.Hour() < 9 {
-					if CSTTime.Minute() == 15 && flag == false {
-						flagTime = CSTTime
-						flag = true
+					if CSTTime.Minute() == 0 {
+						for i := 0; i < len(config.Users); i++ {
+							userChecked[i] = false
+							userCheckTime[i] = CSTTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
+						}
 					}
-					if newDayCheckIn && flag {
-						checkTime := flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
-						log.Println(checkTime)
-						if CSTTime.After(checkTime) {
-							username := config.Users[userIndex].Username
-							password := config.Users[userIndex].Password
-							doFunc(username, password, "checkin")
-							log.Println("username: ", username)
-							userIndex++
-							if userIndex == len(config.Users) {
-								userIndex = 0
-								newDayCheckIn = false
-								flag = false
+					if CSTTime.Minute() > 0 {
+						for i := 0; i < len(config.Users); i++ {
+							if !userChecked[i] && CSTTime.After(userCheckTime[i]) {
+								username := config.Users[i].Username
+								password := config.Users[i].Password
+								doFunc(username, password, "checkin")
+								log.Println("username: ", username)
+								userChecked[i] = true
 							}
 						}
 					}
-
 				}
 				if CSTTime.Hour() >= 18 && CSTTime.Hour() < 19 {
-					if CSTTime.Minute() == 0 && flag == false {
-						flagTime = CSTTime
-						flag = true
+					if CSTTime.Minute() == 0 {
+						for i := 0; i < len(config.Users); i++ {
+							userChecked[i] = false
+							userCheckTime[i] = CSTTime.Add(time.Duration(myRand.Int()%10+1) * time.Minute)
+						}
 					}
-					if newDayCheckout && flag {
-						checkTime := flagTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
-						if CSTTime.After(checkTime) {
-							username := config.Users[userIndex].Username
-							password := config.Users[userIndex].Password
-							doFunc(username, password, "checkout")
-							log.Printf("%s checkout.\n", username)
-							userIndex++
-							if userIndex == len(config.Users) {
-								userIndex = 0
-								newDayCheckout = false
-								flag = false
+					if CSTTime.Minute() > 0 {
+						for i := 0; i < len(config.Users); i++ {
+							if !userChecked[i] && CSTTime.After(userCheckTime[i]) {
+								username := config.Users[i].Username
+								password := config.Users[i].Password
+								doFunc(username, password, "checkout")
+								log.Println("username: ", username)
+								userChecked[i] = true
 							}
 						}
 					}
