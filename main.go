@@ -327,7 +327,7 @@ func main() {
 					if CSTTime.Minute() == 0 {
 						for i := 0; i < len(config.Users); i++ {
 							userChecked[i] = false
-							userCheckTime[i] = CSTTime.Add(time.Duration(myRand.Int()%10+1) * time.Minute)
+							userCheckTime[i] = CSTTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
 						}
 					}
 					if CSTTime.Minute() > 0 {
