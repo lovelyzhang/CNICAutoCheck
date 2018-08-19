@@ -213,14 +213,14 @@ func sendMail(checkType string, username string, result bool) {
 
 func doFunc(username string, password string, checkType string) {
 
-	//authUrl := getAuthUrl()
-	//getSessions(authUrl)
-	//token, err := getToken(authUrl, username, password)
-	//if err != nil {
-	//	log.Fatal(err)
-	//}
-	//result := checkInAndOut(token, checkType)
-	//sendMail(checkType, username, result)
+	authUrl := getAuthUrl()
+	getSessions(authUrl)
+	token, err := getToken(authUrl, username, password)
+	if err != nil {
+		log.Fatal(err)
+	}
+	result := checkInAndOut(token, checkType)
+	sendMail(checkType, username, result)
 	log.Println("do func.")
 }
 
