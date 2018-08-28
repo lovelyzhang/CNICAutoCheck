@@ -302,7 +302,7 @@ func main() {
 		select {
 		case t := <-ticker.C:
 			CSTTime := getCSTTime(t.UTC())
-			if CSTTime.Weekday() >= 0 && CSTTime.Weekday() <= 5 {
+			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
 				log.Println("Work day ...")
 				if CSTTime.Hour() >= 8 && CSTTime.Hour() < 9 {
 					if CSTTime.Minute() == 0 {
