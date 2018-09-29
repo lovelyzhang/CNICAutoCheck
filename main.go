@@ -1,24 +1,24 @@
 package main
 
 import (
-	"net/http"
-	"log"
-	"time"
-	"net"
-	"net/url"
-	"strings"
 	"encoding/json"
-	"io/ioutil"
-	"fmt"
 	"errors"
-	"strconv"
+	"fmt"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+	"io/ioutil"
+	"log"
+	"net"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
 
+	"math/rand"
+	"os"
 	"runtime"
 	"syscall"
-	"os"
-	"math/rand"
 )
 
 type User struct {
@@ -45,12 +45,14 @@ var (
 
 	checkInUrl = "http://159.226.29.10/CnicCheck/CheckServlet"
 
+	api_url = "http://api.goseek.cn/Tools/holiday?date=%4d%02d%02d"
+
 	cookies []*http.Cookie
 
 	netTransport = &http.Transport{
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout: 10 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
 
@@ -65,12 +67,48 @@ var (
 
 	config AutoCheckConfig
 
-	newDayCheckIn  = true
-	newDayCheckout = true
-
 	randSrc = rand.NewSource(time.Now().Unix())
 	myRand  = rand.New(randSrc)
 )
+
+type ApiResp struct {
+	Code int `json:"code"`
+	Data int `json:"data"`
+}
+
+func isRestDay(nowTime *time.Time) bool {
+	if nowTime == nil {
+		log.Println("null pointer")
+		return false
+	}
+	y, m, d := nowTime.Date()
+	reqUrl := fmt.Sprintf(api_url, y, m, d)
+	client := http.Client{
+		Timeout: time.Second * 5,
+	}
+	resp, err := client.Get(reqUrl)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	respJson := new(ApiResp)
+	err = json.Unmarshal(data, respJson)
+	if err != nil {
+		log.Println(string(data))
+		log.Println(err)
+		return false
+	}
+	if respJson.Data == 0 {
+		return false
+	}
+	return true
+}
 
 func getAuthUrl() string {
 	resp, err := client.Get(checkInAuthUrl)
@@ -239,6 +277,7 @@ func getCSTTime(utcTime time.Time) time.Time {
 	return CSTTime
 }
 
+// 守护进程
 func BeDaemonProcess(umask int, workDir string) {
 	darwin := runtime.GOOS == "darwin"
 	ret1, ret2, err := syscall.RawSyscall(syscall.SYS_FORK, 0, 0, 0)
@@ -298,11 +337,25 @@ func main() {
 	userCheckTime := make([]time.Time, len(config.Users))
 	userChecked := make([]bool, len(config.Users))
 
+	var isRest bool
+	needReq := true
+
 	for {
 		select {
 		case t := <-ticker.C:
 			CSTTime := getCSTTime(t.UTC())
-			if CSTTime.Weekday() >= 1 && CSTTime.Weekday() <= 5 {
+			// 凌晨0-1点，判断是否是休息日
+			if CSTTime.Hour() >= 0 && CSTTime.Hour() <= 1 && needReq {
+				isRest = isRestDay(&CSTTime)
+				needReq = false
+			}
+
+			// 当日22-23点，重置
+			if CSTTime.Hour() >= 22 && CSTTime.Hour() <= 23 && needReq {
+				needReq = true
+			}
+
+			if !isRest {
 				log.Println("Work day ...")
 				if CSTTime.Hour() >= 8 && CSTTime.Hour() < 9 {
 					if CSTTime.Minute() == 0 {
@@ -348,5 +401,4 @@ func main() {
 			}
 		}
 	}
-
 }
