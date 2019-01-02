@@ -31,11 +31,6 @@ type AutoCheckConfig struct {
 	ForTime int    `json:"for_time"`
 }
 
-type UserInfo struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
 var (
 	checkInAuthUrl = "http://159.226.29.10/CnicCheck/authorization"
 
@@ -74,40 +69,6 @@ var (
 type ApiResp struct {
 	Code int `json:"code"`
 	Data int `json:"data"`
-}
-
-func isRestDay(nowTime *time.Time) bool {
-	if nowTime == nil {
-		log.Println("null pointer")
-		return false
-	}
-	y, m, d := nowTime.Date()
-	reqUrl := fmt.Sprintf(api_url, y, m, d)
-	client := http.Client{
-		Timeout: time.Second * 5,
-	}
-	resp, err := client.Get(reqUrl)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	respJson := new(ApiResp)
-	err = json.Unmarshal(data, respJson)
-	if err != nil {
-		log.Println(string(data))
-		log.Println(err)
-		return false
-	}
-	if respJson.Data == 0 {
-		return false
-	}
-	return true
 }
 
 func getAuthUrl() string {
@@ -330,23 +291,40 @@ func main() {
 	}
 	json.Unmarshal(configFile, &config)
 
-	// 标志时间
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	// flag数组
 	userCheckTime := make([]time.Time, len(config.Users))
 	userChecked := make([]bool, len(config.Users))
 
-	var isRest bool
+	// 是否为休息日
+	isRestDay := false
+	// 请求一次即可
 	needReq := true
+
+	holidayReqClient := NewRequestClient()
 
 	for {
 		select {
 		case t := <-ticker.C:
+			// 得到中国本地时间
 			CSTTime := getCSTTime(t.UTC())
 			// 凌晨0-1点，判断是否是休息日
 			if CSTTime.Hour() >= 0 && CSTTime.Hour() <= 1 && needReq {
-				isRest = isRestDay(&CSTTime)
+				hResp := holidayReqClient.SendRequest(CSTTime.Year(), int(CSTTime.Month()), CSTTime.Day())
+				if hResp == nil {
+					// 请求错误按照非节假日处理
+					log.Println("请求Holiday API失效，无返回结果")
+					isRestDay = false
+				}
+				if hResp.Code != 0 {
+					// 请求错误按照非节假日处理
+					log.Printf("请求API返回码:%d", hResp.Code)
+					isRestDay = false
+				} else {
+					isRestDay = hResp.HolidayInfo.IsHoliday
+				}
 				needReq = false
 			}
 
@@ -355,15 +333,16 @@ func main() {
 				needReq = true
 			}
 
-			if !isRest {
-				log.Println("Work day ...")
+			if !isRestDay {
 				if CSTTime.Hour() >= 8 && CSTTime.Hour() < 9 {
+					// 生成随机上班打卡时间
 					if CSTTime.Minute() == 0 {
 						for i := 0; i < len(config.Users); i++ {
 							userChecked[i] = false
 							userCheckTime[i] = CSTTime.Add(time.Duration(myRand.Int()%30+1) * time.Minute)
 						}
 					}
+
 					if CSTTime.Minute() > 0 {
 						for i := 0; i < len(config.Users); i++ {
 							if !userChecked[i] && CSTTime.After(userCheckTime[i]) {
@@ -377,6 +356,7 @@ func main() {
 					}
 				}
 				if CSTTime.Hour() >= 18 && CSTTime.Hour() < 19 {
+					// 生成随机下班打卡时间
 					if CSTTime.Minute() == 0 {
 						for i := 0; i < len(config.Users); i++ {
 							userChecked[i] = false
@@ -394,10 +374,7 @@ func main() {
 							}
 						}
 					}
-
 				}
-			} else {
-				log.Println("Do fun ...")
 			}
 		}
 	}
